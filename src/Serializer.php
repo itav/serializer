@@ -2,6 +2,10 @@
 
 namespace Itav\Component\Serializer;
 
+class AnnotateException extends \Exception {
+    
+}
+
 class Serializer {
     
     const MAX_REC = 50;
@@ -167,6 +171,3 @@ class Serializer {
 
 }
 
-class AnnotateException extends Exception {
-    
-}
