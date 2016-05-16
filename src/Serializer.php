@@ -10,6 +10,11 @@ class Serializer {
     
     const MAX_REC = 50;
     private $rec = 0;
+    private $tokenParser;
+    
+    public function __construct() {
+        $this->tokenParser = new TokenParser();
+    }
 
     public function unserialize($src, $class, $dst = null) {
 
@@ -18,6 +23,7 @@ class Serializer {
         }
 
         if (!$class && !class_exists($class)) {
+            
             throw new AnnotateException('Class not exist');
         }
 
@@ -47,6 +53,7 @@ class Serializer {
                 if (property_exists($class, $key)) {
                     $rp = new \ReflectionProperty($dst, $key);
                     if (preg_match('/@var\s+([^\s]+)/', $rp->getDocComment(), $matches)) {
+                        //TODO parse use statements and try to find class with prefix
                         $type = $matches[1];
                         if ($type && class_exists($type)) {
                             $this->rec++;
