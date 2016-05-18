@@ -215,7 +215,7 @@ class Serializer {
         }
         
         $ret = [];
-        $reflection = new ReflectionClass($src);
+        $reflection = new \ReflectionClass($src);
 
         foreach ($reflection->getProperties() as $property) {
             $key = $property->getName();
