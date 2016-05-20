@@ -21,7 +21,7 @@ class DocParserResponse {
     }
 
     public function isArray() {
-        return (bool) $this->isArray;
+        return (bool) $this->array;
     }
 
     public function setValid($valid) {
@@ -34,8 +34,8 @@ class DocParserResponse {
         return $this;
     }
 
-    public function setArray($isArray) {
-        $this->isArray = $isArray;
+    public function setArray($array) {
+        $this->array = $array;
         return $this;
     }
 
@@ -70,10 +70,7 @@ class Serializer {
 
             throw new AnnotateException('Class not exist');
         }
-
-        $rc = new \ReflectionClass($class);
-        $classFile = $rc->getFileName();
-
+        
         if ($dst) {
             if (!($dst instanceof $class)) {
                 throw new AnnotateException('Dst does not match to class');
@@ -113,6 +110,7 @@ class Serializer {
                 if ($this->isNumArray($val)) {
                     if (property_exists($class, $key)) {
                         $rp = new \ReflectionProperty($dst, $key);
+                        $matches = [];
                         if (preg_match('/@var\s+([\w\\\[\]]+)/', $rp->getDocComment(), $matches)) {
                             //TODO parse use statements and try to find class with prefix
                             $type = $matches[1];
@@ -214,6 +212,8 @@ class Serializer {
             return [];
         }
         
+        //TODO obsluga numeric array na wejsciu.
+        
         $ret = [];
         $reflection = new \ReflectionClass($src);
 
@@ -295,6 +295,7 @@ class Serializer {
      */
     public function parseDoc($str, $classOrigin) {
         $res = new DocParserResponse();
+        $matches = [];
         if (preg_match('/@var\s+([\w\\\[\]]+)/', $str, $matches)) {
             //TODO parse use statements and try to find class with prefix
             $type = $matches[1];
