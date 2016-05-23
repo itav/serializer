@@ -43,7 +43,7 @@ class DocParserResponse {
 
 class Serializer {
 
-    const MAX_REC = 50;
+    const MAX_REC = 100;
 
     private $rec = 0;
     private $tokenParser;
