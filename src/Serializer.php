@@ -151,7 +151,7 @@ class Serializer {
                     if (property_exists($class, $key)) {
                         $rp = new \ReflectionProperty($dst, $key);
                         if (preg_match('/@var\s+([\w\\\[\]]+)/', $rp->getDocComment(), $matches)) {
-                            //TODO parse use statements and try to find class with prefix
+                            //TODO use functions 
                             $type = $matches[1];
                             $classExists = false;
                             if ($type) {
