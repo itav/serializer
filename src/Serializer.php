@@ -204,16 +204,24 @@ class Serializer {
     }
 
     public function normalize($src, $with_null = false) {
+        
+        if (is_array($src)) {
+            $res = [];
+            foreach ($src as $k => $v) {
+                $res[$k] = $this->normalize($v, $with_null);
+            }
+            return $res;
+        }
+        
         if (!is_object($src)) {
+            $this->rec--;
             return [];
         }
         
         if ($this->rec++ > self::MAX_REC) {
             return [];
         }
-        
-        //TODO obsluga numeric array na wejsciu.
-        
+                
         $ret = [];
         $reflection = new \ReflectionClass($src);
 
@@ -222,13 +230,11 @@ class Serializer {
             $property->setAccessible(true);
             $value = $property->getValue($src);
             if (is_array($value)) {
-                if ($this->isNumArray($value)) {
-                    $temp = [];
-                    for ($i = 0; $i < count($value); $i++) {
-                        $temp[] = $this->normalize($value[$i], $with_null);
-                    }
-                    $value = $temp;
+                $temp = [];
+                foreach ($value as $k => $v) {
+                    $temp[$k] = $this->normalize($v, $with_null);
                 }
+                $value = $temp;
             } else if (is_object($value)) {
                 if ($value instanceof \DateTime) {
                     $value = $value->format("Y-m-d H:i:s");
