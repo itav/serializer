@@ -2,78 +2,91 @@
 
 namespace Itav\Component\Serializer;
 
-class AnnotateException extends \Exception {
-    
+class SerializerException extends \Exception
+{
+
 }
 
-class DocParserResponse {
+class DocParserResponse
+{
 
     private $valid = false;
     private $className = '';
     private $array = false;
 
-    public function isValid() {
-        return (bool) $this->valid;
+    public function isValid()
+    {
+        return (bool)$this->valid;
     }
 
-    public function getClassName() {
+    public function getClassName()
+    {
         return $this->className;
     }
 
-    public function isArray() {
-        return (bool) $this->array;
+    public function isArray()
+    {
+        return (bool)$this->array;
     }
 
-    public function setValid($valid) {
+    public function setValid($valid)
+    {
         $this->valid = $valid;
         return $this;
     }
 
-    public function setClassName($className) {
+    public function setClassName($className)
+    {
         $this->className = $className;
         return $this;
     }
 
-    public function setArray($array) {
+    public function setArray($array)
+    {
         $this->array = $array;
         return $this;
     }
 
 }
 
-class Serializer {
+class Serializer
+{
 
     const MAX_REC = 100;
 
     private $rec = 0;
     private $tokenParser;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->tokenParser = new TokenParser();
     }
 
-    public function unserialize($src, $class, $dst = null) {
+    public function unserialize($src, $class, $dst = null)
+    {
         if ($this->rec++ > self::MAX_REC) {
             return null;
         }
-        $classAray = false;
+        $classArray = false;
         if (strpos($class, '[]')) {
             $class = str_replace('[]', '', $class);
-            $classAray = true;
+            $classArray = true;
         }
 
         if (!$src) {
-            throw new AnnotateException('Wrong Src.');
+            //Nie wyrzucaj wyjątku kiedy puste dane wejściowe - zwracaj nowy obiekt klasy z 2 parametru.
+            $src = [];
+            //throw new SerializerException('Serializer Error. Source data is empty or null.');
         }
 
         if (!$class && !class_exists($class)) {
 
-            throw new AnnotateException('Class not exist');
+            throw new SerializerException('Serializer Error. Class specified as 2 parameter does not exist');
         }
-        
+
         if ($dst) {
             if (!($dst instanceof $class)) {
-                throw new AnnotateException('Dst does not match to class');
+                throw new SerializerException('Serializer Error. Destination object does not match to class specified as 2 parameter.');
             }
         } else {
 
@@ -83,32 +96,31 @@ class Serializer {
         if (!is_array($src)) {
             if (is_object($src)) {
                 //TODO array map or walk recursive
-                $src = (array) $src;
+                $src = (array)$src;
             } elseif (($tmp = json_decode($src, true)) && json_last_error() == JSON_ERROR_NONE) {
                 $src = $tmp;
             } else {
-                throw new AnnotateException('Wrong Src');
+                throw new SerializerException('Serializer Error. Src is not array and can not be decoded to an array.');
             }
         }
 
-        if ($classAray) {
+        if ($classArray) {
             if ($this->isNumArray($src)) {
                 $dstArr = [];
                 for ($i = 0; $i < count($src); $i++) {
                     $dstArr[] = $this->unserialize($src[$i], $class);
                 }
-                ($this->rec === 0) ? : $this->rec--;
+                ($this->rec === 0) ?: $this->rec--;
                 return $dstArr;
             } else {
-                throw new AnnotateException('Wrong Src. Array expected.');
+                throw new SerializerException('Serializer Error. Src is not an array.');
             }
         }
 
         foreach ($src as $k => $val) {
-            $key = self::camelize($k);
             if (is_array($val)) {
                 if ($this->isNumArray($val)) {
-                    if (property_exists($class, $key)) {
+                    if ($key = $this->keyExists($class, $k)) {
                         $rp = new \ReflectionProperty($dst, $key);
                         $matches = [];
                         if (preg_match('/@var\s+([\w\\\[\]]+)/', $rp->getDocComment(), $matches)) {
@@ -148,7 +160,7 @@ class Serializer {
                     }
                 } else {
 
-                    if (property_exists($class, $key)) {
+                    if ($key = $this->keyExists($class, $k)) {
                         $rp = new \ReflectionProperty($dst, $key);
                         if (preg_match('/@var\s+([\w\\\[\]]+)/', $rp->getDocComment(), $matches)) {
                             //TODO use functions 
@@ -185,7 +197,7 @@ class Serializer {
             }
 
 
-            if (property_exists($class, $key)) {
+            if ($key = $this->keyExists($class, $k)) {
                 $rp = new \ReflectionProperty($dst, $key);
                 if (!is_null($val)) {
                     if (preg_match('/@var\s+([\w\\\[\]]+)/', $rp->getDocComment(), $matches)) {
@@ -199,12 +211,30 @@ class Serializer {
                 $rp->setValue($dst, $val);
             }
         }
-        ($this->rec === 0) ? : $this->rec--;
+        ($this->rec === 0) ?: $this->rec--;
         return $dst;
     }
 
-    public function normalize($src, $with_null = false) {
-        
+    /**
+     * @param $class
+     * @param $key
+     * @return bool | string
+     */
+    private function keyExists($class, $key)
+    {
+        $camelKey = self::camelize($key);
+        if (property_exists($class, $camelKey)) {
+            return $camelKey;
+        }
+        if (property_exists($class, $key)) {
+            return $key;
+        }
+        return false;
+    }
+
+    public function normalize($src, $with_null = false)
+    {
+
         if (is_array($src)) {
             $res = [];
             foreach ($src as $k => $v) {
@@ -212,19 +242,18 @@ class Serializer {
             }
             return $res;
         }
-        
+
         if (!is_object($src)) {
             $this->rec--;
             return [];
         }
-        
+
         if ($this->rec++ > self::MAX_REC) {
             return [];
         }
-                
+
         $ret = [];
         $reflection = new \ReflectionClass($src);
-
         foreach ($reflection->getProperties() as $property) {
             $key = $property->getName();
             $property->setAccessible(true);
@@ -238,34 +267,34 @@ class Serializer {
             } else if (is_object($value)) {
                 if ($value instanceof \DateTime) {
                     $value = $value->format("Y-m-d H:i:s");
-                } else {                
+                } else {
                     $response = $this->parseDoc($property->getDocComment(), $reflection->getName());
-                    if($response->isValid()){
+                    if ($response->isValid()) {
                         $value = $this->normalize($value, $with_null);
                     }
                 }
-               
+
             }
             if ($with_null) {
                 $ret[self::uncamelize($key)] = $value;
                 continue;
             } elseif (!is_null($value)) {
-
                 $ret[self::uncamelize($key)] = $value;
             }
         }
-        ($this->rec === 0) ? : $this->rec--;
+        ($this->rec === 0) ?: $this->rec--;
         return $ret;
     }
 
     /**
-     * 
+     *
      * @param string $class
      * @param string $classOrigin
      * @return DocParserResponse
      */
-    public function checkClassName($class, $classOrigin) {
-        
+    public function checkClassName($class, $classOrigin)
+    {
+
         $res = new DocParserResponse();
         if ($class) {
 
@@ -294,12 +323,13 @@ class Serializer {
     }
 
     /**
-     * 
+     *
      * @param string $str
      * @param string $classOrigin
      * @return DocParserResponse
      */
-    public function parseDoc($str, $classOrigin) {
+    public function parseDoc($str, $classOrigin)
+    {
         $res = new DocParserResponse();
         $matches = [];
         if (preg_match('/@var\s+([\w\\\[\]]+)/', $str, $matches)) {
@@ -318,7 +348,8 @@ class Serializer {
         return $res;
     }
 
-    public static function camelize($string) {
+    public static function camelize($string)
+    {
         $strings = explode("_", $string);
         $first = true;
         foreach ($strings as &$v) {
@@ -331,11 +362,13 @@ class Serializer {
         return implode("", $strings);
     }
 
-    public static function uncamelize($string) {
+    public static function uncamelize($string)
+    {
         return strtolower(preg_replace('/([a-z])([A-Z])/', '$1_$2', $string));
     }
 
-    public function isNumArray(&$array) {
+    public function isNumArray(&$array)
+    {
         if (!is_array($array)) {
             return false;
         }
