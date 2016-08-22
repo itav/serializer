@@ -232,20 +232,20 @@ class Serializer
         return false;
     }
 
-    public function normalize($src, $with_null = false)
+    public function normalize($src, $withNull = false, $camelize = true)
     {
 
         if (is_array($src)) {
             $res = [];
             foreach ($src as $k => $v) {
-                $res[$k] = $this->normalize($v, $with_null);
+                $res[$k] = $this->normalize($v, $withNull, $camelize);
             }
             return $res;
         }
 
         if (!is_object($src)) {
             $this->rec--;
-            return [];
+            return is_scalar($src) ? $src : [] ;
         }
 
         if ($this->rec++ > self::MAX_REC) {
@@ -261,7 +261,7 @@ class Serializer
             if (is_array($value)) {
                 $temp = [];
                 foreach ($value as $k => $v) {
-                    $temp[$k] = $this->normalize($v, $with_null);
+                    $temp[$k] = $this->normalize($v, $withNull, $camelize);
                 }
                 $value = $temp;
             } else if (is_object($value)) {
@@ -270,16 +270,16 @@ class Serializer
                 } else {
                     $response = $this->parseDoc($property->getDocComment(), $reflection->getName());
                     if ($response->isValid()) {
-                        $value = $this->normalize($value, $with_null);
+                        $value = $this->normalize($value, $withNull, $camelize);
                     }
                 }
 
             }
-            if ($with_null) {
-                $ret[self::uncamelize($key)] = $value;
+            if ($withNull) {
+                $ret[$camelize ? self::uncamelize($key) : $key] = $value;
                 continue;
             } elseif (!is_null($value)) {
-                $ret[self::uncamelize($key)] = $value;
+                $ret[$camelize ? self::uncamelize($key) : $key] = $value;
             }
         }
         ($this->rec === 0) ?: $this->rec--;
