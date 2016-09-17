@@ -2,67 +2,53 @@
 
 namespace Itav\Component\Serializer;
 
-class SerializerException extends \Exception
-{
-
-}
-
-class DocParserResponse
-{
-
-    private $valid = false;
-    private $className = '';
-    private $array = false;
-
-    public function isValid()
-    {
-        return (bool)$this->valid;
-    }
-
-    public function getClassName()
-    {
-        return $this->className;
-    }
-
-    public function isArray()
-    {
-        return (bool)$this->array;
-    }
-
-    public function setValid($valid)
-    {
-        $this->valid = $valid;
-        return $this;
-    }
-
-    public function setClassName($className)
-    {
-        $this->className = $className;
-        return $this;
-    }
-
-    public function setArray($array)
-    {
-        $this->array = $array;
-        return $this;
-    }
-
-}
-
 class Serializer
 {
 
+    /**
+     * Max recursion no.
+     */
     const MAX_REC = 100;
 
+    /**
+     * @var int
+     */
     private $rec = 0;
+    /**
+     * @var TokenParser
+     */
     private $tokenParser;
 
+    /**
+     * Serializer constructor.
+     */
     public function __construct()
     {
         $this->tokenParser = new TokenParser();
     }
 
-    public function unserialize($src, $class, $dst = null)
+    /**
+     * @param array $src
+     * @param string $class
+     * @param mixed $dst
+     * @param bool $useSetter
+     * @return mixed
+     * @throws SerializerException
+     */
+    public function denormalize($src, $class, $dst = null, $useSetter = false)
+    {
+        return $this->unserialize($src, $class, $dst, $useSetter);
+    }
+
+    /**
+     * @param array $src
+     * @param string $class
+     * @param mixed $dst
+     * @param bool $useSetter
+     * @return mixed
+     * @throws SerializerException
+     */
+    public function unserialize($src, $class, $dst = null, $useSetter = false)
     {
         if ($this->rec++ > self::MAX_REC) {
             return null;
@@ -105,10 +91,10 @@ class Serializer
         }
 
         if ($classArray) {
-            if ($this->isNumArray($src)) {
+            if (is_array($src)) {
                 $dstArr = [];
-                for ($i = 0; $i < count($src); $i++) {
-                    $dstArr[] = $this->unserialize($src[$i], $class);
+                foreach ($src as $id => $recV) {
+                    $dstArr[$id] = $this->unserialize($recV, $class, null, $useSetter);
                 }
                 ($this->rec === 0) ?: $this->rec--;
                 return $dstArr;
@@ -118,106 +104,64 @@ class Serializer
         }
 
         foreach ($src as $k => $val) {
+
+            if (!$key = $this->keyExists($class, $k)) {
+                continue;
+            }
+
+            $rp = new \ReflectionProperty($dst, $key);
+            $docParse = $this->parseDoc($rp->getDocComment());
+            $objFlag = false;
             if (is_array($val)) {
-                if ($this->isNumArray($val)) {
-                    if ($key = $this->keyExists($class, $k)) {
-                        $rp = new \ReflectionProperty($dst, $key);
-                        $matches = [];
-                        if (preg_match('/@var\s+([\w\\\[\]]+)/', $rp->getDocComment(), $matches)) {
-                            //TODO parse use statements and try to find class with prefix
-                            $type = $matches[1];
-                            if ($type && strpos($type, '[]')) {
-                                $type = str_replace('[]', '', $type);
-                                $classExists = false;
-                                if (strpos($type, '\\') !== 0) {
-                                    $rc = new \ReflectionClass($class);
-                                    $ns = $rc->getNamespaceName();
-                                    if (class_exists($ns . '\\' . $type)) {
-                                        $classExists = true;
-                                        $type = $ns . '\\' . $type;
-                                    } else {
-                                        $file = $rc->getFileName();
-                                        $tempType = $this->tokenParser->findUseStatement($file, $type);
-                                        if (class_exists($tempType)) {
-                                            $classExists = true;
-                                            $type = $tempType;
-                                        } elseif (class_exists($type)) {
-                                            $classExists = true;
-                                        }
-                                    }
-                                } else if (class_exists($type)) {
-                                    $classExists = true;
-                                }
-                                if ($classExists) {
-                                    $temp = [];
-                                    for ($j = 0; $j < count($val); $j++) {
-                                        $temp[] = $this->unserialize($val[$j], $type);
-                                    }
-                                    $val = $temp;
-                                }
-                            }
-                        }
-                    }
-                } else {
+                $docParseDetail = $this->parseDoc($rp->getDocComment(), new \ReflectionClass($dst), true);
+                if($docParseDetail->isValid()) {
 
-                    if ($key = $this->keyExists($class, $k)) {
-                        $rp = new \ReflectionProperty($dst, $key);
-                        if (preg_match('/@var\s+([\w\\\[\]]+)/', $rp->getDocComment(), $matches)) {
-                            //TODO use functions 
-                            $type = $matches[1];
-                            $classExists = false;
-                            if ($type) {
-
-                                if (strpos($type, '\\') !== 0) {
-                                    $rc = new \ReflectionClass($class);
-                                    $ns = $rc->getNamespaceName();
-                                    if (class_exists($ns . '\\' . $type)) {
-                                        $classExists = true;
-                                        $type = $ns . '\\' . $type;
-                                    } else {
-                                        $file = $rc->getFileName();
-                                        $tempType = $this->tokenParser->findUseStatement($file, $type);
-                                        if (class_exists($tempType)) {
-                                            $classExists = true;
-                                            $type = $tempType;
-                                        } elseif (class_exists($type)) {
-                                            $classExists = true;
-                                        }
-                                    }
-                                } else if (class_exists($type)) {
-                                    $classExists = true;
-                                }
-                            }
-                            if ($classExists) {
-                                $val = $this->unserialize($val, $type);
-                            }
+                    if ($docParseDetail->isArray()) {
+                        $temp = [];
+                        foreach ($val as $idx => $recVal) {
+                            $temp[$idx] = $this->unserialize($recVal, $docParseDetail->getClassName(), null, $useSetter);
                         }
+                        $val = $temp;
+                    } else {
+
+                        $val = $this->unserialize($val, $docParseDetail->getClassName(), null, $useSetter);
                     }
+                    $objFlag = true;
                 }
             }
 
+            $setter = false;
+            if ($useSetter) {
+                $setter = 'set' . ucfirst($key);
+                $setter = method_exists($dst, $setter) ? $setter : false;
+            }
 
-            if ($key = $this->keyExists($class, $k)) {
-                $rp = new \ReflectionProperty($dst, $key);
-                if (!is_null($val)) {
-                    if (preg_match('/@var\s+([\w\\\[\]]+)/', $rp->getDocComment(), $matches)) {
-                        $type = $matches[1];
-                        if ('DateTime' == $type || '\DateTime' == $type) {
-                            $val = new \DateTime($val);
-                        }
-                    }
-                }
+            if ($setter) {
+                $dst->$setter($val);
+                continue;
+            }
+
+            if (is_null($val)) {
                 $rp->setAccessible(true);
-                $rp->setValue($dst, $val);
+                $rp->setValue($dst, null);
+                continue;
             }
+
+            if (!$objFlag && $docParse->isValid()) {
+                $val = $this->generateValue($docParse->getClassName(), $val);
+            }
+
+            $rp->setAccessible(true);
+            $rp->setValue($dst, $val);
+
         }
         ($this->rec === 0) ?: $this->rec--;
         return $dst;
     }
 
     /**
-     * @param $class
-     * @param $key
+     * @param string $class
+     * @param string $key
      * @return bool | string
      */
     private function keyExists($class, $key)
@@ -232,20 +176,27 @@ class Serializer
         return false;
     }
 
-    public function normalize($src, $withNull = false, $camelize = true)
+    /**
+     * @param mixed $src
+     * @param bool $withNull
+     * @param bool $snakeCase
+     * @param bool $useGetter
+     * @return array
+     */
+    public function normalize($src, $withNull = false, $snakeCase = true, $useGetter = false)
     {
 
         if (is_array($src)) {
             $res = [];
             foreach ($src as $k => $v) {
-                $res[$k] = $this->normalize($v, $withNull, $camelize);
+                $res[$k] = $this->normalize($v, $withNull, $snakeCase, $useGetter);
             }
             return $res;
         }
 
         if (!is_object($src)) {
             $this->rec--;
-            return is_scalar($src) ? $src : [] ;
+            return is_scalar($src) ? $src : [];
         }
 
         if ($this->rec++ > self::MAX_REC) {
@@ -256,30 +207,40 @@ class Serializer
         $reflection = new \ReflectionClass($src);
         foreach ($reflection->getProperties() as $property) {
             $key = $property->getName();
-            $property->setAccessible(true);
-            $value = $property->getValue($src);
+            $getter = false;
+            if ($useGetter) {
+                $getter = 'get' . ucfirst($key);
+                $getter = method_exists($src, $getter) ? $getter : (method_exists($src, 'is' . ucfirst($key)) ? 'is' . ucfirst($key) : false);
+            }
+            if ($getter) {
+                $value = $src->$getter();
+            } else {
+                $property->setAccessible(true);
+                $value = $property->getValue($src);
+            }
+
             if (is_array($value)) {
                 $temp = [];
                 foreach ($value as $k => $v) {
-                    $temp[$k] = $this->normalize($v, $withNull, $camelize);
+                    $temp[$k] = $this->normalize($v, $withNull, $snakeCase, $useGetter);
                 }
                 $value = $temp;
             } else if (is_object($value)) {
-                if ($value instanceof \DateTime) {
+                if (!$getter && $value instanceof \DateTime) {
                     $value = $value->format("Y-m-d H:i:s");
                 } else {
-                    $response = $this->parseDoc($property->getDocComment(), $reflection->getName());
-                    if ($response->isValid()) {
-                        $value = $this->normalize($value, $withNull, $camelize);
+                    $parseDoc = $this->parseDoc($property->getDocComment(), $reflection, true);
+                    if ($parseDoc->isValid()) {
+                        $value = $this->normalize($value, $withNull, $snakeCase, $useGetter);
                     }
                 }
 
             }
             if ($withNull) {
-                $ret[$camelize ? self::uncamelize($key) : $key] = $value;
+                $ret[$snakeCase ? self::uncamelize($key) : $key] = $value;
                 continue;
             } elseif (!is_null($value)) {
-                $ret[$camelize ? self::uncamelize($key) : $key] = $value;
+                $ret[$snakeCase ? self::uncamelize($key) : $key] = $value;
             }
         }
         ($this->rec === 0) ?: $this->rec--;
@@ -288,18 +249,15 @@ class Serializer
 
     /**
      *
-     * @param string $class
-     * @param string $classOrigin
+     * @param DocParserResponse $res
+     * @param \ReflectionClass $rc
      * @return DocParserResponse
      */
-    public function checkClassName($class, $classOrigin)
+    public function checkClassName($res, $rc)
     {
-
-        $res = new DocParserResponse();
-        if ($class) {
+        if ($class = $res->getClassName()) {
 
             if (strpos($class, '\\') !== 0) {
-                $rc = new \ReflectionClass($classOrigin);
                 $ns = $rc->getNamespaceName();
                 $fullName = $ns . '\\' . $class;
                 if (class_exists($fullName)) {
@@ -325,15 +283,15 @@ class Serializer
     /**
      *
      * @param string $str
-     * @param string $classOrigin
+     * @param \ReflectionClass $rc
+     * @param bool $deep
      * @return DocParserResponse
      */
-    public function parseDoc($str, $classOrigin)
+    public function parseDoc($str, $rc = null, $deep = false)
     {
         $res = new DocParserResponse();
         $matches = [];
         if (preg_match('/@var\s+([\w\\\[\]]+)/', $str, $matches)) {
-            //TODO parse use statements and try to find class with prefix
             $type = $matches[1];
             if ($type && strpos($type, '[]')) {
                 $type = str_replace('[]', '', $type);
@@ -342,12 +300,16 @@ class Serializer
             $res->setValid(true);
             $res->setClassName($type);
         }
-        if ($res->isValid()) {
-            return $this->checkClassName($res->getClassName(), $classOrigin);
+        if ($deep && $res->isValid()) {
+            return $this->checkClassName($res, $rc);
         }
         return $res;
     }
 
+    /**
+     * @param $string
+     * @return string
+     */
     public static function camelize($string)
     {
         $strings = explode("_", $string);
@@ -362,19 +324,35 @@ class Serializer
         return implode("", $strings);
     }
 
+    /**
+     * @param $string
+     * @return string
+     */
     public static function uncamelize($string)
     {
         return strtolower(preg_replace('/([a-z])([A-Z])/', '$1_$2', $string));
     }
 
-    public function isNumArray(&$array)
+    /**
+     * @param $type
+     * @param $val
+     * @return mixed
+     */
+    private function generateValue($type, $val)
     {
-        if (!is_array($array)) {
-            return false;
+        if ('int' == substr($type, 0, 3)) {
+            return (int)$val;
         }
-        $keys = array_keys($array);
-        return (array_keys($keys) === $keys);
+
+        if ('bool' == substr($type, 0, 4)) {
+            return (bool)$val;
+        }
+
+        if ('DateTime' == ltrim($type, '\\')) {
+            return new \DateTime($val);
+        }
+
+        return $val;
     }
 
 }
-

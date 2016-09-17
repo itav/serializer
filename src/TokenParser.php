@@ -2,8 +2,12 @@
 
 namespace Itav\Component\Serializer;
 
-class TokenParser {
+class TokenParser
+{
 
+    /**
+     *
+     */
     const MAX_DEPTH = 100;
 
     /**
@@ -30,7 +34,13 @@ class TokenParser {
      */
     private $tokens = [];
 
-    public function findUseStatement($filename, $className) {
+    /**
+     * @param string $filename
+     * @param string $className
+     * @return null | string
+     */
+    public function findUseStatement($filename, $className)
+    {
 
         if (!$filename || !$className) {
             return null;
@@ -77,9 +87,15 @@ class TokenParser {
             }
             $this->pointer = $j + 1;
         }
+        return null;
     }
 
-    private function next($key = T_USE) {
+    /**
+     * @param int $key
+     * @return int
+     */
+    private function next($key = T_USE)
+    {
         for ($i = $this->pointer; $i < $this->tokenCount; $i++) {
             if ($this->tokens[$i][0] === $key) {
 
@@ -87,7 +103,7 @@ class TokenParser {
                 return $i;
             }
         }
-        return false;
+        return 0;
     }
 
 }
