@@ -10,6 +10,10 @@ class DocParserResponse
      */
     private $valid = false;
     /**
+     * @var bool
+     */
+    private $scalar = false;
+    /**
      * @var string
      */
     private $className = '';
@@ -71,4 +75,24 @@ class DocParserResponse
         $this->array = $array;
         return $this;
     }
+
+    /**
+     * @return boolean
+     */
+    public function isScalar()
+    {
+        return $this->scalar;
+    }
+
+    /**
+     * @param boolean $scalar
+     * @return DocParserResponse
+     */
+    public function setScalar($scalar)
+    {
+        $this->scalar = $scalar;
+        return $this;
+    }
+
+
 }

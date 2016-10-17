@@ -83,7 +83,7 @@ class Serializer
             if (is_object($src)) {
                 //TODO array map or walk recursive
                 $src = (array)$src;
-            } elseif (($tmp = json_decode($src, true)) && json_last_error() == JSON_ERROR_NONE) {
+            } elseif (($tmp = json_decode($src, true)) && json_last_error() === JSON_ERROR_NONE) {
                 $src = $tmp;
             } else {
                 throw new SerializerException('Serializer Error. Src is not array and can not be decoded to an array.');
@@ -112,9 +112,9 @@ class Serializer
             $rp = new \ReflectionProperty($dst, $key);
             $docParse = $this->parseDoc($rp->getDocComment());
             $objFlag = false;
-            if (is_array($val)) {
+            if (is_array($val) && $docParse->isValid()) {
                 $docParseDetail = $this->parseDoc($rp->getDocComment(), new \ReflectionClass($dst), true);
-                if($docParseDetail->isValid()) {
+                if ($docParseDetail->isValid()) {
 
                     if ($docParseDetail->isArray()) {
                         $temp = [];
@@ -141,13 +141,13 @@ class Serializer
                 continue;
             }
 
-            if (is_null($val)) {
+            if (null === $val) {
                 $rp->setAccessible(true);
                 $rp->setValue($dst, null);
                 continue;
             }
 
-            if (!$objFlag && $docParse->isValid()) {
+            if (!$objFlag && $docParse->isScalar()) {
                 $val = $this->generateValue($docParse->getClassName(), $val);
             }
 
@@ -227,7 +227,7 @@ class Serializer
                 $value = $temp;
             } else if (is_object($value)) {
                 if (!$getter && $value instanceof \DateTime) {
-                    $value = $value->format("Y-m-d H:i:s");
+                    $value = $value->format('Y-m-d H:i:s');
                 } else {
                     $parseDoc = $this->parseDoc($property->getDocComment(), $reflection, true);
                     if ($parseDoc->isValid()) {
@@ -239,7 +239,7 @@ class Serializer
             if ($withNull) {
                 $ret[$snakeCase ? self::uncamelize($key) : $key] = $value;
                 continue;
-            } elseif (!is_null($value)) {
+            } elseif (null !== $value) {
                 $ret[$snakeCase ? self::uncamelize($key) : $key] = $value;
             }
         }
@@ -255,6 +255,7 @@ class Serializer
      */
     public function checkClassName($res, $rc)
     {
+        $res->setValid(false);
         if ($class = $res->getClassName()) {
 
             if (strpos($class, '\\') !== 0) {
@@ -293,12 +294,18 @@ class Serializer
         $matches = [];
         if (preg_match('/@var\s+([\w\\\[\]]+)/', $str, $matches)) {
             $type = $matches[1];
-            if ($type && strpos($type, '[]')) {
-                $type = str_replace('[]', '', $type);
-                $res->setArray(true);
+            if ($type) {
+                if (strpos($type, '[]')) {
+                    $type = str_replace('[]', '', $type);
+                    $res->setArray(true);
+                }
+                $res->setClassName($type);
+                if ($this->isScalarClass($type)) {
+                    $res->setScalar(true);
+                } else {
+                    $res->setValid(true);
+                }
             }
-            $res->setValid(true);
-            $res->setClassName($type);
         }
         if ($deep && $res->isValid()) {
             return $this->checkClassName($res, $rc);
@@ -312,7 +319,7 @@ class Serializer
      */
     public static function camelize($string)
     {
-        $strings = explode("_", $string);
+        $strings = explode('_', $string);
         $first = true;
         foreach ($strings as &$v) {
             if ($first) {
@@ -321,7 +328,7 @@ class Serializer
             }
             $v = ucfirst($v);
         }
-        return implode("", $strings);
+        return implode('', $strings);
     }
 
     /**
@@ -337,22 +344,53 @@ class Serializer
      * @param $type
      * @param $val
      * @return mixed
+     * @throws \Itav\Component\Serializer\SerializerException
      */
     private function generateValue($type, $val)
     {
-        if ('int' == substr($type, 0, 3)) {
+        if ('int' === $type || 'integer' === $type) {
             return (int)$val;
         }
 
-        if ('bool' == substr($type, 0, 4)) {
+        if ('bool' === $type || 'boolean' === $type) {
             return (bool)$val;
         }
 
-        if ('DateTime' == ltrim($type, '\\')) {
-            return new \DateTime($val);
+        if ('DateTime' === ltrim($type, '\\')) {
+            try {
+                return new \DateTime($val);
+            } catch (\Exception $e) {
+                try{
+                    $intVal = filter_var($val, FILTER_VALIDATE_INT);
+                    return $intVal ? (new \DateTime())->setTimestamp($intVal) : new \DateTime($val);
+                }catch (\Exception $e2){
+                    throw new SerializerException('Could not create DateTime object. '. $e2->getMessage());
+                }
+            }
         }
-
         return $val;
+    }
+
+    /**
+     * @param string $className
+     * @return bool
+     */
+    private function isScalarClass($className)
+    {
+        $cl = ltrim(strtolower($className), '\\');
+        if (in_array($cl, [
+            'int',
+            'integer',
+            'string',
+            'bool',
+            'boolean',
+            'datetime',
+            'array',
+            'null'
+        ])) {
+            return true;
+        }
+        return false;
     }
 
 }
