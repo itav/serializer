@@ -51,11 +51,6 @@ class Car
      */
     private $parts;
 
-    public function getParts()
-    {
-        return $this->parts;
-    }
-
     public function setParts($parts)
     {
         $this->parts = $parts;
