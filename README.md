@@ -76,7 +76,7 @@ $json = json_encode($array);
 
 ```
 
-and also in revere direction: 
+and also in reverse direction: 
 ####json --- arrays --- objects
 
 ```php
