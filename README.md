@@ -3,7 +3,6 @@
 
 * [Installation](#installation)
 * [Quick Start](#quick_start)
-* [Usage](#usage)
 * [How to Contribute](#contribute)
 
 <a name="installation"></a>
@@ -31,7 +30,7 @@ require 'vendor/autoload.php';
 <a name="quick_start"></a>
 ## Quick Start
 
-Php serializen allows you to switch between: 
+Php Serializer allows you to switch between: 
 ####objects --- arrays --- json, xml
 
 ```php
@@ -81,5 +80,57 @@ and also in revere direction:
 ####json --- arrays --- objects
 
 ```php
+<?php
 
+$json = <<<JSON
+{  
+   "model":"MyModel",
+   "color":"red",
+   "parts":[  
+      {  
+         "number":123,
+         "name":"engine"
+      },
+      {  
+         "number":124,
+         "name":"lamp"
+      },
+      {  
+         "number":125,
+         "name":"wheel"
+      }
+   ]
+}
+JSON;
+
+//$array = json_decode($json, true);
+
+$array = [
+    'model' => 'MyModel',
+    'color' => 'red',
+    'parts' => [
+        0 => [
+            'number' => 123,
+            'name' => 'engine'
+        ],
+        1 => [
+            'number' => 124,
+            'name' => 'lamp'
+        ],
+        2 => [
+            'number' => 125,
+            'name' => 'wheel'
+        ],
+    ]
+];
+
+$car = $serializer->denormalize($array, Car::class);
 ```
+#### other features:
+- Serializer work recursively
+- handle /DateTime object
+- implement Java style naming convention.
+
+ <a name="contribute"></a>
+ ## How to Contribute
+ write to me: sylwester7799@gmail.com
