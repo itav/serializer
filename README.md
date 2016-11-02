@@ -7,7 +7,7 @@
 
 #### main features:
 - work recursively up to 50 nested objects/arrays
-- handling \DateTime object
+- handling \DateTime objects
 - implement Java style naming convention.
 
 <a name="installation"></a>
