@@ -5,6 +5,11 @@
 * [Quick Start](#quick_start)
 * [How to Contribute](#contribute)
 
+#### other features:
+- work recursively up to 50 nested objects/arrays
+- handling \DateTime object
+- implement Java style naming convention.
+
 <a name="installation"></a>
 ## Installation
 
@@ -121,10 +126,7 @@ $array = [
 
 $car = $serializer->denormalize($array, Car::class);
 ```
-#### other features:
-- Serializer work recursively
-- handle /DateTime object
-- implement Java style naming convention.
+
 
  <a name="contribute"></a>
  ## How to Contribute
