@@ -5,7 +5,7 @@
 * [Quick Start](#quick_start)
 * [How to Contribute](#contribute)
 
-#### other features:
+#### main features:
 - work recursively up to 50 nested objects/arrays
 - handling \DateTime object
 - implement Java style naming convention.
