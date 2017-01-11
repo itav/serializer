@@ -83,8 +83,6 @@ class Serializer
             if (is_object($src)) {
                 //TODO array map or walk recursive
                 $src = (array)$src;
-            } elseif (($tmp = json_decode($src, true)) && json_last_error() === JSON_ERROR_NONE) {
-                $src = $tmp;
             } else {
                 //Nie wyrzucaj wyjątku kiedy danych wejsciowych nie sie przekonwerowac na tablice - zwracaj nowy pusty obiekt klasy z 2 parametru.
                 //throw new SerializerException('Serializer Error. Src is not array and can not be decoded to an array.');
