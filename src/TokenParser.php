@@ -1,5 +1,6 @@
 <?php
 
+
 namespace Itav\Component\Serializer;
 
 class TokenParser

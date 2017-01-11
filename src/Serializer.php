@@ -185,6 +185,9 @@ class Serializer
      */
     public function normalize($src, $withNull = false, $snakeCase = true, $useGetter = false)
     {
+        if(null === $src){
+            return null;
+        }
 
         if (is_array($src)) {
             $res = [];
