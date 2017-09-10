@@ -114,11 +114,11 @@ $array = [
             'name' => 'engine'
         ],
         1 => [
-            'number' => 124,
+            'number' => 125,
             'name' => 'lamp'
         ],
         2 => [
-            'number' => 125,
+            'number' => 127,
             'name' => 'wheel'
         ],
     ]
