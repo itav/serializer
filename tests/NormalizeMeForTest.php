@@ -2,6 +2,8 @@
 
 namespace Itav\Component\Serializer\Test;
 
+use DateTime;
+
 class NormalizeMeForTest
 {
 
@@ -10,19 +12,21 @@ class NormalizeMeForTest
     private $float = 1.1;
     private $bool = false;
     private $null = null;
+
+    /** @var array  */
     private $array = [1,2];
     /**
      * @var NestedClassOne[]
      */
     private $objArray = [];
     /**
-     * @var \DateTime
+     * @var DateTime
      */
     private $date;
 
     public function __construct()
     {
-        $this->date = new \DateTime('2017-12-27 12:10:10');
+        $this->date = new DateTime('2017-12-27 12:10:10');
         $this->objArray[] = new NestedClassOne;
     }
 }

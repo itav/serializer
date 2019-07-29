@@ -6,16 +6,16 @@ namespace Itav\Component\Serializer\DocBlock;
 class DocBlockInfo
 {
     private $className;
-    private $isScalar;
+    private $isBuiltIn;
     private $isArray;
 
     public function __construct(
         string $className,
-        bool $isScalar,
+        bool $isBuiltIn,
         bool $isArray
     ) {
         $this->className = $className;
-        $this->isScalar = $isScalar;
+        $this->isBuiltIn = $isBuiltIn;
         $this->isArray = $isArray;
     }
 
@@ -24,9 +24,9 @@ class DocBlockInfo
         return $this->className;
     }
 
-    public function isScalar(): bool
+    public function isBuiltIn(): bool
     {
-        return $this->isScalar;
+        return $this->isBuiltIn;
     }
 
     public function isArray(): bool

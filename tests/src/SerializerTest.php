@@ -2,10 +2,13 @@
 
 namespace Itav\Component\Serializer\Test;
 
+use DateTime;
 use Itav\Component\Serializer\Factory;
 use Itav\Component\Serializer\Nested\Test\NestedForFactory;
 use Itav\Component\Serializer\Serializer;
+use Itav\Component\Serializer\SerializerException;
 use PHPUnit\Framework\TestCase;
+use ReflectionException;
 use Test\Constructor\ReqConstructor;
 use Test\StrangeData\StrangeIntegers;
 
@@ -24,7 +27,8 @@ class SerializerTest extends TestCase
     }
 
     /**
-     * @throws \Itav\Component\Serializer\SerializerException
+     * @throws SerializerException
+     * @throws ReflectionException
      */
     public function testNormalize()
     {
@@ -34,7 +38,8 @@ class SerializerTest extends TestCase
     }
 
     /**
-     * @throws \Itav\Component\Serializer\SerializerException
+     * @throws SerializerException
+     * @throws ReflectionException
      */
     public function testDenormalize()
     {
@@ -44,7 +49,8 @@ class SerializerTest extends TestCase
     }
 
     /**
-     * @throws \Itav\Component\Serializer\SerializerException
+     * @throws SerializerException
+     * @throws ReflectionException
      */
     public function testDenormalizeWithSetter()
     {
@@ -54,7 +60,8 @@ class SerializerTest extends TestCase
     }
 
     /**
-     * @throws \Itav\Component\Serializer\SerializerException
+     * @throws SerializerException
+     * @throws ReflectionException
      */
     public function testDenormalizeStrangeIntegers()
     {
@@ -92,7 +99,8 @@ class SerializerTest extends TestCase
     }
 
     /**
-     * @throws \Itav\Component\Serializer\SerializerException
+     * @throws SerializerException
+     * @throws ReflectionException
      */
     public function testDenormalizeWithRequiredConstructorParams()
     {
@@ -107,7 +115,8 @@ class SerializerTest extends TestCase
     }
 
     /**
-     * @throws \Itav\Component\Serializer\SerializerException
+     * @throws SerializerException
+     * @throws ReflectionException
      */
     public function testDenormalizeDoNotModifyDefaults()
     {
@@ -124,7 +133,8 @@ class SerializerTest extends TestCase
     }
 
     /**
-     * @throws \Itav\Component\Serializer\SerializerException
+     * @throws SerializerException
+     * @throws ReflectionException
      */
     public function testSerialize()
     {
@@ -134,7 +144,8 @@ class SerializerTest extends TestCase
     }
 
     /**
-     * @throws \Itav\Component\Serializer\SerializerException
+     * @throws SerializerException
+     * @throws ReflectionException
      */
     public function testUnserialize()
     {
@@ -144,21 +155,26 @@ class SerializerTest extends TestCase
     }
 
     /**
-     * @throws \Itav\Component\Serializer\SerializerException
+     * @throws SerializerException
+     * @throws ReflectionException
      */
     public function testFactory()
     {
-        $data = [
-            'int' => 1,
-            'null_int' => null,
-            'nested_for_factory' => ['a' => 'a', 'b' => 'b'],
-            'date_time' => new \DateTime('today')
-        ];
-        $data = [1, null, ['a' => 'a', 'b' => 'b'], new \DateTime('today')];
+        $data = [1, null, ['a' => 'a', 'b' => 'b'], new DateTime('today')];
 
         $actual = $this->serializer->factory($data, CreatedByFactory::class, true);
-        $expected = new CreatedByFactory(1, null, new NestedForFactory('a', 'b'), new \DateTime('today'));
+        $expected = new CreatedByFactory(1, null, new NestedForFactory('a', 'b'), new DateTime('today'));
         $this->assertEquals($expected, $actual);
+    }
+
+    /**
+     * @throws ReflectionException
+     * @throws SerializerException
+     */
+    public function testIfAcceptNumericArrayAsDenormalizeInput()
+    {
+        $actual = $this->serializer->denormalize([1 => 'some integer indexed value', 'string' => 'some string'], NormalizeMeForTest::class);
+        $this->assertInstanceOf(NormalizeMeForTest::class, $actual);
     }
 
     public function getNormalizeData()

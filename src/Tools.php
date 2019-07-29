@@ -58,7 +58,7 @@ class Tools
         return null;
     }
 
-    public static function isScalarClass(string $className): bool
+    public static function isBuiltInClass(string $className): bool
     {
         $cl = ltrim(strtolower($className), '\\');
         if (in_array($cl, [

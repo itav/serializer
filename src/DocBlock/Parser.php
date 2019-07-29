@@ -4,10 +4,11 @@ declare(strict_types=1);
 namespace Itav\Component\Serializer\DocBlock;
 
 use Itav\Component\Serializer\Tools;
+use ReflectionProperty;
 
 class Parser
 {
-    static private $paths = [
+    private static $paths = [
         'A' => [T_USE => 'B'],
         'B' => [T_WHITESPACE => 'C'],
         'C' => [T_STRING => 'E', T_NS_SEPARATOR => 'D'],
@@ -28,7 +29,7 @@ class Parser
         $this->cache = $cache;
     }
 
-    public function parseDoc(\ReflectionProperty $rp): ?DocBlockInfo
+    public function parseDoc(ReflectionProperty $rp): ?DocBlockInfo
     {
         $content = $rp->getDocComment() ?: '';
         if ('' === $content || false === strpos($content, '@var')) {
@@ -44,7 +45,7 @@ class Parser
             return null;
         }
 
-        if (Tools::isScalarClass($type)) {
+        if (Tools::isBuiltInClass($type)) {
             return new DocBlockInfo($type, true, false);
         }
 

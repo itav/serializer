@@ -3,7 +3,13 @@ declare(strict_types=1);
 
 namespace Itav\Component\Serializer;
 
+use DateTime;
+use Exception;
 use Itav\Component\Serializer\DocBlock\Parser;
+use ReflectionClass;
+use ReflectionException;
+use ReflectionMethod;
+use ReflectionProperty;
 
 class Serializer
 {
@@ -33,6 +39,7 @@ class Serializer
      * @param bool $useSetter
      * @return array|null
      * @throws SerializerException
+     * @throws ReflectionException
      */
     public function unserialize(string $json, string $class, $dst = null, bool $useSetter = false)
     {
@@ -51,6 +58,7 @@ class Serializer
      * @param bool $useGetter
      * @return null|string
      * @throws SerializerException
+     * @throws ReflectionException
      */
     public function serialize($obj, bool $withNull = false, bool $camelCase = false, bool $useGetter = false): ?string
     {
@@ -75,6 +83,7 @@ class Serializer
      * @param int $rec
      * @return array
      * @throws SerializerException
+     * @throws ReflectionException
      */
     public function normalize(
         $obj,
@@ -92,7 +101,7 @@ class Serializer
         }
 
         $result = [];
-        $reflection = new \ReflectionClass($obj);
+        $reflection = new ReflectionClass($obj);
         $properties = $reflection->getProperties();
         foreach ($properties as $property) {
             $value = $this->getPropertyValue($obj, $property, $withNull, $camelCase, $useGetter, $rec);
@@ -114,6 +123,7 @@ class Serializer
      * @param int $rec
      * @return array|null
      * @throws SerializerException
+     * @throws ReflectionException
      */
     public function denormalize(
         array $data,
@@ -137,7 +147,7 @@ class Serializer
         }
 
         foreach ($data as $key => $value) {
-            $prop = Tools::checkPropExist($className, $key);
+            $prop = Tools::checkPropExist($className, (string)$key);
             if ($prop) {
                 $this->setPropertyValue($obj, $value, $prop, $useSetter, $rec);
             }
@@ -152,6 +162,7 @@ class Serializer
      * @param int $rec
      * @return array|mixed|null
      * @throws SerializerException
+     * @throws ReflectionException
      */
     public function factory(
         array $data,
@@ -172,7 +183,7 @@ class Serializer
             return $this->handleError("Class {$className} not exists.", null);
         }
 
-        $rc = new \ReflectionClass($className);
+        $rc = new ReflectionClass($className);
         $con = $rc->getConstructor();
         if (!$con) {
             return $this->denormalize($data, $className, null, $useSetter, $rec);
@@ -219,7 +230,7 @@ class Serializer
             if ($arg->hasType()) {
                 $type = $arg->getType();
                 if ($type->isBuiltin()) {
-                    $val = $this->getScalarValue($type->getName(), $val);
+                    $val = $this->getBuiltInValue($type->getName(), $val);
                     if (null === $val && !$type->allowsNull()) {
                         $this->handleError("Null passed for not null-able argument", null, true);
                     }
@@ -260,6 +271,7 @@ class Serializer
      * @param int $rec
      * @return array
      * @throws SerializerException
+     * @throws ReflectionException
      */
     private function normalizeRecursive($items, bool $withNull, bool $camelCase, bool $useGetter, int &$rec): array
     {
@@ -285,7 +297,7 @@ class Serializer
                 case is_array($item):
                     $result[$k] = $this->normalizeRecursive($item, $withNull, $camelCase, $useGetter, $rec);
                     break;
-                case $item instanceof \DateTime:
+                case $item instanceof DateTime:
                     $result[$k] = $item->format($this->datetimeFormat);
                     break;
                 case is_object($item):
@@ -300,17 +312,18 @@ class Serializer
 
     /**
      * @param $obj
-     * @param \ReflectionProperty $rp
+     * @param ReflectionProperty $rp
      * @param bool $withNull
      * @param bool $camelCase
      * @param bool $useGetter
      * @param int $rec
      * @return array|mixed|null|string
      * @throws SerializerException
+     * @throws ReflectionException
      */
     private function getPropertyValue(
         $obj,
-        \ReflectionProperty $rp,
+        ReflectionProperty $rp,
         bool $withNull,
         bool $camelCase,
         bool $useGetter,
@@ -329,7 +342,7 @@ class Serializer
             case null === $value:
                 $value = null;
                 break;
-            case $value instanceof \DateTime:
+            case $value instanceof DateTime:
                 $value = $value->format($this->datetimeFormat);
                 break;
             case is_object($value) || is_array($value):
@@ -347,6 +360,7 @@ class Serializer
      * @param null $obj
      * @return null
      * @throws SerializerException
+     * @throws ReflectionException
      */
     private function prepareObject(string $className, $obj = null)
     {
@@ -354,7 +368,7 @@ class Serializer
             return $this->handleError("Class {$className} not exists.", null);
         }
         if (null === $obj) {
-            $rc = new \ReflectionClass($className);
+            $rc = new ReflectionClass($className);
             $con = $rc->getConstructor();
             if ($con && $con->getNumberOfRequiredParameters() > 0) {
                 return $rc->newInstanceWithoutConstructor();
@@ -374,6 +388,7 @@ class Serializer
      * @param int $rec
      * @return array
      * @throws SerializerException
+     * @throws ReflectionException
      */
     private function denormalizeRecursive(
         array $data,
@@ -397,6 +412,7 @@ class Serializer
      * @param int $rec
      * @return array
      * @throws SerializerException
+     * @throws ReflectionException
      */
     private function factoryRecursive(
         array $data,
@@ -420,18 +436,22 @@ class Serializer
      * @param bool $useSetter
      * @param int $rec
      * @throws SerializerException
+     * @throws ReflectionException
      */
     private function setPropertyValue($obj, $value, string $prop, bool $useSetter, int &$rec): void
     {
-        $rp = new \ReflectionProperty($obj, $prop);
+        $rp = new ReflectionProperty($obj, $prop);
         $docInfo = $this->tokenParser->parseDoc($rp);
         switch (true) {
             case $useSetter && $setter = Tools::genSetter($rp->getDeclaringClass()->name, $prop):
-                $rm = new \ReflectionMethod($obj, $setter);
+                $rm = new ReflectionMethod($obj, $setter);
                 $rm->setAccessible(true);
                 $rm->invoke($obj, $value);
                 return;
             case null === $value:
+                break;
+            case $docInfo && $docInfo->isBuiltIn():
+                $value = $this->getBuiltInValue($docInfo->className(), $value);
                 break;
             case is_array($value) && $docInfo:
                 if ($docInfo->isArray()) {
@@ -441,9 +461,6 @@ class Serializer
                     $value = $this->denormalize($value, $docInfo->className(), null, $useSetter, $rec);
                     $rec++;
                 }
-                break;
-            case $docInfo && $docInfo->isScalar():
-                $value = $this->getScalarValue($docInfo->className(), $value);
                 break;
         }
 
@@ -457,7 +474,7 @@ class Serializer
      * @return mixed
      * @throws SerializerException
      */
-    private function getScalarValue(string $type, $val)
+    private function getBuiltInValue(string $type, $val)
     {
         if ('int' === $type || 'integer' === $type) {
             $val = filter_var($val, FILTER_VALIDATE_INT);
@@ -476,8 +493,8 @@ class Serializer
         if ('DateTime' === ltrim($type, '\\')) {
             try {
                 $intVal = filter_var($val, FILTER_VALIDATE_INT);
-                return $intVal ? (new \DateTime())->setTimestamp($intVal) : new \DateTime($val);
-            } catch (\Exception $e) {
+                return $intVal ? (new DateTime())->setTimestamp($intVal) : new DateTime($val);
+            } catch (Exception $e) {
                 $val = $this->handleError("Could not create DateTime object. Msg: {$e->getMessage()}", null);
             }
         }
